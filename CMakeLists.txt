@@ -1,5 +1,11 @@
-project(curlpp) 
+cmake_minimum_required(VERSION 3.5)
 
+set(LIB_MAJOR_VERSION "1")
+set(LIB_MINOR_VERSION "0")
+set(LIB_PATCH_VERSION "0")
+set(LIB_VERSION_STRING "${LIB_MAJOR_VERSION}.${LIB_MINOR_VERSION}.${LIB_PATCH_VERSION}")
+
+project(curlpp VERSION "${LIB_VERSION_STRING}" LANGUAGES CXX)
 
 # In response to CMake 3.0 generating warnings regarding policy CMP0042,
 # the OSX RPATH settings have been updated per recommendations found
@@ -87,7 +93,7 @@ file(GLOB_RECURSE HeaderFileList "${CMAKE_CURRENT_SOURCE_DIR}/include/*")
 file(GLOB_RECURSE SourceFileList "${CMAKE_CURRENT_SOURCE_DIR}/src/*")
 
 add_library(${PROJECT_NAME} SHARED ${HeaderFileList} ${SourceFileList})
-set_target_properties(${PROJECT_NAME} PROPERTIES SOVERSION 1 VERSION 1.0.0)
+set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 target_link_libraries(${PROJECT_NAME} PUBLIC curl)
 if(CONAN_LIBS)
   target_link_libraries(${PROJECT_NAME} PRIVATE ${CONAN_LIBS})
@@ -98,6 +104,10 @@ target_include_directories(
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
     "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 )
+target_include_directories(${PROJECT_NAME} PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    )
 
 add_library(${PROJECT_NAME}_static STATIC ${HeaderFileList} ${SourceFileList})
 # Make sure that on unix-platforms shared and static libraries have
@@ -127,7 +137,9 @@ install(DIRECTORY include/utilspp/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/util
 install(DIRECTORY include/curlpp/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/curlpp")
 
 install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_static
+        EXPORT CURLPP 
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
+add_subdirectory(cmake)
