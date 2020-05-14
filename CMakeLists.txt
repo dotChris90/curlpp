@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.12)
 
 set(LIB_MAJOR_VERSION "1")
 set(LIB_MINOR_VERSION "0")
@@ -62,8 +62,7 @@ add_subdirectory(extras)
 # Seems simple.
 
 message(STATUS "Looking for CURL")
-include(FindCURL)
-find_package(CURL REQUIRED)
+find_package(CURL REQUIRED libcurl)
 
 if(CURL_FOUND)
   message(STATUS "Found CURL version: ${CURL_VERSION_STRING}")
@@ -92,51 +91,56 @@ endif()
 file(GLOB_RECURSE HeaderFileList "${CMAKE_CURRENT_SOURCE_DIR}/include/*")
 file(GLOB_RECURSE SourceFileList "${CMAKE_CURRENT_SOURCE_DIR}/src/*")
 
-add_library(${PROJECT_NAME} SHARED ${HeaderFileList} ${SourceFileList})
-set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
-target_link_libraries(${PROJECT_NAME} PUBLIC curl)
-if(CONAN_LIBS)
-  target_link_libraries(${PROJECT_NAME} PRIVATE ${CONAN_LIBS})
-endif()
-target_include_directories(
-    ${PROJECT_NAME}
-    INTERFACE
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
-    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-)
-target_include_directories(${PROJECT_NAME} PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-    )
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
-add_library(${PROJECT_NAME}_static STATIC ${HeaderFileList} ${SourceFileList})
-# Make sure that on unix-platforms shared and static libraries have
-# the same root name, but different suffixes.
-#
-#  (solution taken from https://cmake.org/Wiki/CMake_FAQ#How_do_I_make_my_shared_and_static_libraries_have_the_same_root_name.2C_but_different_suffixes.3F)
-# 
-# Making shared and static libraries have the same root name, but different suffixes
-SET_TARGET_PROPERTIES(${PROJECT_NAME}_static PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
-# Now the library target "curlpp_static" will be named "curlpp.lib" with MS tools.
-# This conflicts with the "curlpp.lib" import library corresponding to "curlpp.dll",
-# so we add a "lib" prefix (which is default on other platforms anyway):
-SET_TARGET_PROPERTIES(${PROJECT_NAME}_static PROPERTIES PREFIX "lib")
-target_link_libraries(${PROJECT_NAME}_static PUBLIC curl)
-if(CONAN_LIBS)
-  target_link_libraries(${PROJECT_NAME}_static PRIVATE ${CONAN_LIBS})
-endif()
-target_include_directories(
-    ${PROJECT_NAME}_static
-    INTERFACE
-    "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
-    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-)
-
+if(BUILD_SHARED_LIBS)
+	SET(CURLPP_TARGET_NAME ${PROJECT_NAME})
+	add_library(${PROJECT_NAME} SHARED ${HeaderFileList} ${SourceFileList})
+	set_target_properties(${PROJECT_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
+	target_link_libraries(${PROJECT_NAME} PUBLIC CURL::libcurl)
+	if(CONAN_LIBS)
+	  target_link_libraries(${PROJECT_NAME} PRIVATE ${CONAN_LIBS})
+	endif()
+	target_include_directories(
+		${PROJECT_NAME}
+		INTERFACE
+		"$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
+		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+	)
+	target_include_directories(${PROJECT_NAME} PUBLIC
+			$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+			$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+		)
+else()
+	SET(CURLPP_TARGET_NAME ${PROJECT_NAME}_static)
+	add_library(${PROJECT_NAME}_static STATIC ${HeaderFileList} ${SourceFileList})
+	# Make sure that on unix-platforms shared and static libraries have
+	# the same root name, but different suffixes.
+	#
+	#  (solution taken from https://cmake.org/Wiki/CMake_FAQ#How_do_I_make_my_shared_and_static_libraries_have_the_same_root_name.2C_but_different_suffixes.3F)
+	# 
+	# Making shared and static libraries have the same root name, but different suffixes
+	SET_TARGET_PROPERTIES(${PROJECT_NAME}_static PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
+	# Now the library target "curlpp_static" will be named "curlpp.lib" with MS tools.
+	# This conflicts with the "curlpp.lib" import library corresponding to "curlpp.dll",
+	# so we add a "lib" prefix (which is default on other platforms anyway):
+	SET_TARGET_PROPERTIES(${PROJECT_NAME}_static PROPERTIES PREFIX "lib")
+	target_link_libraries(${PROJECT_NAME}_static PUBLIC CURL::libcurl)
+	if(CONAN_LIBS)
+	  target_link_libraries(${PROJECT_NAME}_static PRIVATE ${CONAN_LIBS})
+	endif()
+	target_include_directories(
+		${PROJECT_NAME}_static
+		INTERFACE
+		"$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
+		"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
+	)
+endif(BUILD_SHARED_LIBS)
 # install headers
 install(DIRECTORY include/utilspp/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/utilspp")
 install(DIRECTORY include/curlpp/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/curlpp")
 
-install(TARGETS ${PROJECT_NAME} ${PROJECT_NAME}_static
+install(TARGETS ${CURLPP_TARGET_NAME}
         EXPORT CURLPP 
         RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
